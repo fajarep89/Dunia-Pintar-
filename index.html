@@ -27,7 +27,10 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #opts button{font-size:40px;padding:16px 0;background:var(--b)}
 #opts button.bad{background:#999;animation:sh .3s}#opts button.ok{background:var(--g)}
 @keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
-#close{position:absolute;top:10px;right:10px;width:54px;height:54px;border-radius:50%;background:#fff;color:var(--ink);font-size:24px;border:0;box-shadow:0 3px 0 #0003}
+.mc{width:84px;height:84px;border-radius:20px;background:#f1f5ff;border:4px solid #cbd5e1;font-size:46px;display:flex;align-items:center;justify-content:center;touch-action:none;position:relative;z-index:2}.mc.ok{background:#b7f0cf;border-color:#4cc38a}
+#mbox{position:relative;display:flex;justify-content:space-between;padding:0 12px;margin:10px 0;min-height:320px}#ml,#mr{display:flex;flex-direction:column;justify-content:space-around;min-height:320px}
+#msv{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+#close,#closeM{position:absolute;top:10px;right:10px;width:54px;height:54px;border-radius:50%;background:#fff;color:var(--ink);font-size:24px;border:0;box-shadow:0 3px 0 #0003}
 </style></head><body>
 <canvas id="c"></canvas>
 <div class="hud" id="hud"></div>
@@ -48,6 +51,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 <h1 id="q">Ada berapa?</h1><div id="items"></div><div id="opts"></div>
 <p id="prog"></p></div></div>
 
+<div class="ov" id="ovM"><div class="card" style="position:relative"><button id="closeM">✖</button><h1 id="mq">Tarik garis!</h1><div id="mbox"><svg id="msv"></svg><div id="ml"></div><div id="mr"></div></div></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* ===== 1. DATA & PENYIMPANAN (mudah diganti ke server nanti) ===== */
@@ -116,7 +120,7 @@ const OldCount={emo:['🍎','🍌','🎈','🐟','⭐','🍓'],round:0,need:5,an
   end(){$('ovGame').style.display='none';$('bubble').style.display='none'}
 };
 $('close').onclick=()=>Count.end();
-let curNpc=null,act=null,onTop=false;
+let curNpc=null,act=null,onTop=false,ride=null,nearV=null;
 const L8=['A','K','I','P','G','B','S','M'];
 const G={
  hitung:()=>{const max=Math.min(4+level()*2,10),a=1+Math.floor(Math.random()*max),e=pick(['🍎','🍌','🎈','🐟','⭐','🍓']);const pool=[];for(let v=1;v<=max+2;v++)if(v!==a)pool.push(v);pool.sort(()=>Math.random()-.5);return{q:'Ada berapa '+e+' ?',show:(e+' ').repeat(a).trim(),ans:a,opts:[a,...pool.slice(0,3)]}},
@@ -125,7 +129,7 @@ const G={
  bentuk:()=>{const A=[['🟦','Persegi'],['🔺','Segitiga'],['⭐','Bintang'],['❤️','Hati'],['⚫','Lingkaran']],w=pick(A);return{q:'Bentuk apa ini?',show:w[0],ans:w[1],opts:[w[1],...A.filter(x=>x[1]!==w[1]).sort(()=>Math.random()-.5).slice(0,3).map(x=>x[1])]}}
 };
 const Count={g:'hitung',round:0,need:5,ans:null,lock:false,
- start(g){this.g=G[g]?g:'hitung';this.round=0;$('ovGame').style.display='flex';this.next()},
+ start(g){if(g==='warna'||g==='bentuk')return Match.start(g);this.g=G[g]?g:'hitung';this.round=0;$('ovGame').style.display='flex';this.next()},
  next(){this.lock=false;const d=G[this.g]();this.ans=d.ans;$('q').textContent=d.q;$('items').textContent=d.show;const o=$('opts');o.innerHTML='';
   d.opts.sort(()=>Math.random()-.5).forEach(v=>{const b=document.createElement('button');b.className='btn';b.textContent=v;b.style.fontSize=String(v).length>3?'26px':'40px';b.onclick=()=>this.choose(v,b);o.appendChild(b)});
   $('prog').textContent=`Soal ${this.round+1} dari ${this.need}`;say(S.name+', '+d.q,3000)},
@@ -207,8 +211,35 @@ const mark=new THREE.Mesh(new THREE.ConeGeometry(.4,.8,4),mat(0xffd23f));mark.ro
 const npcs=[{g:teacher,m:mark,game:'hitung',msg:'belajar berhitung'}];
 [[0xff9f1c,26,-5.5,'huruf','belajar huruf'],[0x9b5de5,-24,-4.5,'warna','belajar warna'],[0x2a9d8f,-13,15,'bentuk','belajar bentuk']].forEach(([c,x,z,game,msg])=>{const g=person(c,0xe0ac69,0x222222);g.position.set(x,0,z);scene.add(g);solid(x,z,.9);const m=new THREE.Mesh(new THREE.ConeGeometry(.4,.8,4),mat(0xffd23f));m.rotation.x=Math.PI;scene.add(m);npcs.push({g,m,game,msg})});
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const Match={m:'warna',done:0,
+ start(m){this.m=m;this.done=0;$('ovM').style.display='flex';$('mq').textContent=m==='warna'?'Cocokkan warna!':'Cocokkan bentuk!';this.build();say(S.name+', tarik garis ke gambar yang cocok!',4500)},
+ build(){const P=this.m==='warna'?[['🔴','🍎'],['🟡','🍌'],['🟢','🐸'],['🔵','🐳'],['🟠','🥕'],['🟣','🍇']]:['🔺','🟦','⭐','❤️','⚫'].map(x=>[x,x]);
+  const ps=P.sort(()=>Math.random()-.5).slice(0,3),L=$('ml'),Rr=$('mr');L.innerHTML=Rr.innerHTML='';$('msv').innerHTML='';
+  ps.forEach((p,i)=>{const a=document.createElement('div');a.className='mc';a.textContent=p[0];a.dataset.k=i;a.onpointerdown=e=>this.down(e,a);L.appendChild(a)});
+  ps.map((p,i)=>[p[1],i]).sort(()=>Math.random()-.5).forEach(([t,i])=>{const b=document.createElement('div');b.className='mc r';b.textContent=t;b.dataset.k=i;Rr.appendChild(b)})},
+ ctr(el){const r=el.getBoundingClientRect(),o=$('mbox').getBoundingClientRect();return[r.left+r.width/2-o.left,r.top+r.height/2-o.top]},
+ down(e,a){if(a.classList.contains('ok'))return;e.preventDefault();const[x,y]=this.ctr(a),o=$('mbox').getBoundingClientRect(),l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x);l.setAttribute('y1',y);l.setAttribute('x2',x);l.setAttribute('y2',y);l.setAttribute('stroke','#ff6b6b');l.setAttribute('stroke-width',10);l.setAttribute('stroke-linecap','round');$('msv').appendChild(l);
+  const mv=ev=>{l.setAttribute('x2',ev.clientX-o.left);l.setAttribute('y2',ev.clientY-o.top)};
+  const up=ev=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);removeEventListener('pointercancel',up);
+   const el=document.elementFromPoint(ev.clientX,ev.clientY),c=el&&el.closest&&el.closest('.mc.r');
+   if(c&&c.dataset.k===a.dataset.k&&!c.classList.contains('ok')){const[cx,cy]=this.ctr(c);l.setAttribute('x2',cx);l.setAttribute('y2',cy);l.setAttribute('stroke','#4cc38a');a.classList.add('ok');c.classList.add('ok');this.win()}
+   else{l.remove();if(c)say(Lines.no(S.name),2500)}};
+  addEventListener('pointermove',mv);addEventListener('pointerup',up);addEventListener('pointercancel',up)},
+ win(){const l0=level();S.stars++;S.score+=10;this.done++;let t=Lines.ok(S.name);if(this.done>=3){S.games++;t=Lines.done(S.name)}if(level()>l0)t+=' '+Lines.up(S.name,level());hud();say(t,4000);if(this.done>=3)setTimeout(()=>this.end(),2200)},
+ end(){$('ovM').style.display='none';$('bubble').style.display='none'}};
+$('closeM').onclick=()=>Match.end();
+// kendaraan
+function wheel(g,x,z,r,w){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,w,12),mat(0x222222));m.rotation.z=Math.PI/2;m.position.set(x,r,z);g.add(m)}
+function tex(t,w,h,bg,fg){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle=bg;x.fillRect(0,0,w,h);x.fillStyle=fg;x.font='bold '+(h*.6)+'px sans-serif';x.textAlign='center';x.fillText(t,w/2,h*.72);return new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c)})}
+const vehs=[];function addV(g,x,z,name,icon,sp,h){g.position.set(x,0,z);scene.add(g);vehs.push({g,name,icon,sp,h})}
+{let g=new THREE.Group();box(2.2,.6,4.6,0xffffff,0,.55,0,g);box(2.2,1.7,2,0xffffff,0,1.65,-1.4,g);box(2.2,.9,1.1,0x2a9d8f,0,.9,1.7,g);
+ [-1,1].forEach(s=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(2,1.1),tex('MBG',256,128,'#2a9d8f','#ffffff'));p.position.set(s*1.11,1.7,-1.4);p.rotation.y=s*Math.PI/2;g.add(p)});
+ [-1.1,1.1].forEach(x=>{wheel(g,x,1.5,.45,.3);wheel(g,x,-1.5,.45,.3)});addV(g,-5,3,'mobil MBG','🚚',13,.8);
+ g=new THREE.Group();wheel(g,0,-.9,.45,.25);wheel(g,0,.9,.45,.25);box(.35,.5,1.8,0xe63946,0,.8,0,g);box(.5,.15,.7,0x222222,0,1.1,-.1,g);box(.9,.1,.1,0x333333,0,1.45,.8,g);box(.3,.6,.1,0x444444,0,1.1,.8,g);addV(g,5,3,'motor','🏍️',11,.4);
+ g=new THREE.Group();wheel(g,0,-.8,.4,.12);wheel(g,0,.8,.4,.12);box(.12,.12,1.5,0x3a86ff,0,.85,0,g);box(.4,.1,.5,0x222222,0,1.05,-.2,g);box(.8,.08,.08,0x333333,0,1.3,.75,g);addV(g,10,3,'sepeda','🚲',8,.3)}
 function go(type,pts,times){act={type,pts,times,i:0,t:0}}
-$('act').onclick=()=>{if(act)return;if(onTop){onTop=false;go('slide',[V(20,3.5,-26.2),V(20,3.5,-24.5),V(20,.3,-19.5),V(20,0,-18.2)],[.4,1.3,.4])}else go('climb',[me.position.clone(),V(20,0,-28.4),V(20,3.5,-28.4),V(20,3.5,-26.2)],[.4,1.4,.5])};
+$('act').onclick=()=>{if(act)return;if(ride){const r=ride.g,c=Math.cos(r.rotation.y),s=Math.sin(r.rotation.y);ride=null;me.position.set(r.position.x+c*2.2,0,r.position.z-s*2.2);say('Hebat '+S.name+'! Kendaraan diparkir.',2500);return}if(nearV&&!onTop){ride=nearV;me.position.set(ride.g.position.x,0,ride.g.position.z);me.rotation.y=ride.g.rotation.y;say('Brum brum '+S.name+'! Ayo jalan-jalan!',2500);return}if(onTop){onTop=false;go('slide',[V(20,3.5,-26.2),V(20,3.5,-24.5),V(20,.3,-19.5),V(20,0,-18.2)],[.4,1.3,.4])}else go('climb',[me.position.clone(),V(20,0,-28.4),V(20,3.5,-28.4),V(20,3.5,-26.2)],[.4,1.4,.5])};
 let camYaw=0,camH=9,camD=11;const ptr={};
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr[e.pointerId]={x:e.clientX,y:e.clientY}});
 cv.addEventListener('pointermove',e=>{const p=ptr[e.pointerId];if(!p)return;const ids=Object.keys(ptr);
@@ -234,12 +265,12 @@ let vy=0,t0=performance.now(),walk=0,started=false;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min((now-t0)/1000,.05);t0=now;const t=now/1000;
-  const busy=$('ovGame').style.display==='flex'||!started||act||onTop;
+  const busy=$('ovGame').style.display==='flex'||$('ovM').style.display==='flex'||!started||act||onTop;
   let ix=inp.x+((keys.d||keys.arrowright)?1:0)-((keys.a||keys.arrowleft)?1:0);
   let iy=inp.y+((keys.s||keys.arrowdown)?1:0)-((keys.w||keys.arrowup)?1:0);
   const mag=Math.min(Math.hypot(ix,iy),1);
   if(!busy&&mag>.1){
-    const sp=(mag>.85?8:5)*dt;const l=Math.hypot(ix,iy),ux=ix/l,uz=iy/l,cy=Math.cos(camYaw),sy=Math.sin(camYaw),nx=ux*cy+uz*sy,nz=-ux*sy+uz*cy;
+    const sp=(ride?ride.sp:(mag>.85?8:5))*dt;const l=Math.hypot(ix,iy),ux=ix/l,uz=iy/l,cy=Math.cos(camYaw),sy=Math.sin(camYaw),nx=ux*cy+uz*sy,nz=-ux*sy+uz*cy;
     me.position.x+=nx*sp*mag/Math.max(mag,.01)*Math.min(mag*1.2,1);me.position.z+=nz*sp*Math.min(mag*1.2,1);
     me.rotation.y=Math.atan2(nx,nz);walk+=dt*(mag>.85?14:9);
   }else walk*=.9;
@@ -247,17 +278,20 @@ function loop(now){
   if(!act&&!onTop){vy-=22*dt;me.position.y=Math.max(0,me.position.y+vy*dt);if(me.position.y===0)vy=Math.max(vy,0)}
   me.position.x=Math.max(-46,Math.min(46,me.position.x));me.position.z=Math.max(-46,Math.min(46,me.position.z));
   for(const s of solids){const dx=me.position.x-s.x,dz=me.position.z-s.z,d=Math.hypot(dx,dz),r=s.r+.5;if(d<r&&d>0){me.position.x=s.x+dx/d*r;me.position.z=s.z+dz/d*r}}
-  if(act){const a=act.pts[act.i],b=act.pts[act.i+1],f=Math.min(act.t/act.times[act.i],1);act.t+=dt;me.position.set(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,a.z+(b.z-a.z)*f);if(Math.hypot(b.x-a.x,b.z-a.z)>.01)me.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);if(act.type==='climb')walk+=dt*10;
+  if(ride){ride.g.position.set(me.position.x,0,me.position.z);ride.g.rotation.y=me.rotation.y;me.position.y=ride.h;vy=0}
+if(act){const a=act.pts[act.i],b=act.pts[act.i+1],f=Math.min(act.t/act.times[act.i],1);act.t+=dt;me.position.set(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,a.z+(b.z-a.z)*f);if(Math.hypot(b.x-a.x,b.z-a.z)>.01)me.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);if(act.type==='climb')walk+=dt*10;
  if(f>=1){act.i++;act.t=0;if(act.i>=act.times.length){onTop=act.type==='climb';act=null;vy=0}}}
 const sw=Math.sin(walk)*.7;me.legs[0].rotation.x=sw;me.legs[1].rotation.x=-sw;me.arms[0].rotation.x=-sw;me.arms[1].rotation.x=sw;
 if(act&&act.type==='slide'){me.legs[0].rotation.x=me.legs[1].rotation.x=-1.4;me.arms[0].rotation.x=me.arms[1].rotation.x=-2.8}
+if(ride){me.legs[0].rotation.x=me.legs[1].rotation.x=-1.2;me.arms[0].rotation.x=me.arms[1].rotation.x=-1.1}
   // guru menghadap anak
   teacher.rotation.y=Math.atan2(me.position.x-teacher.position.x,me.position.z-teacher.position.z);
   mark.position.set(teacher.position.x,4.3+Math.sin(t*3)*.25,teacher.position.z);mark.rotation.y=t*2;
   curNpc=null;for(const n of npcs){const dx=me.position.x-n.g.position.x,dz=me.position.z-n.g.position.z;n.g.rotation.y=Math.atan2(dx,dz);n.m.position.set(n.g.position.x,4.3+Math.sin(t*3)*.25,n.g.position.z);n.m.rotation.y=t*2;if(Math.hypot(dx,dz)<4.5)curNpc=n}
   const near=!!curNpc;
   $('talk').style.display=(near&&!busy)?'block':'none';
-  const ab=$('act');ab.style.display='none';if(!act&&started){if(onTop){ab.style.display='block';ab.textContent='🛝 Merosot!'}else if(!busy&&me.position.y<.5&&Math.hypot(me.position.x-20,me.position.z+28.4)<3){ab.style.display='block';ab.textContent='🪜 Naik tangga'}}
+  const ab=$('act');ab.style.display='none';let nv=null;if(!act&&!ride)for(const v of vehs)if(Math.hypot(me.position.x-v.g.position.x,me.position.z-v.g.position.z)<3.5&&me.position.y<.5)nv=v;nearV=nv;
+  if(ride){ab.style.display='block';ab.textContent='⬇ Turun'}else if(nv&&!busy){ab.style.display='block';ab.textContent=nv.icon+' Naik '+nv.name}else if(!act&&started){if(onTop){ab.style.display='block';ab.textContent='🛝 Merosot!'}else if(!busy&&me.position.y<.5&&Math.hypot(me.position.x-20,me.position.z+28.4)<3){ab.style.display='block';ab.textContent='🪜 Naik tangga'}}
   if(near&&!busy&&!loop.was&&started)say(Lines.near(S.name,curNpc.msg),3500);loop.was=near;
   // kamera
   const tx=me.position.x+Math.sin(camYaw)*camD,tz=me.position.z+Math.cos(camYaw)*camD,k=Math.min(1,dt*6);cam.position.x+=(tx-cam.position.x)*k;cam.position.z+=(tz-cam.position.z)*k;cam.position.y+=(me.position.y+camH-cam.position.y)*k;
