@@ -94,7 +94,7 @@ const Count={emo:['🍎','🍌','🎈','🐟','⭐','🍓'],round:0,need:5,ans:0
     this.ans=1+Math.floor(Math.random()*max);
     const e=pick(this.emo);$('items').textContent=(e+' ').repeat(this.ans).trim();
     $('q').textContent='Ada berapa '+e+' ?';
-    const set=new Set([this.ans]);while(set.size<4){let v=this.ans+Math.floor(Math.random()*5)-2;if(v>=1&&v<=max+2)set.add(v)}
+    const pool=[];for(let v=1;v<=max+2;v++)if(v!==this.ans)pool.push(v);pool.sort((a,b)=>Math.abs(a-this.ans)-Math.abs(b-this.ans)||Math.random()-.5);const set=new Set([this.ans,...pool.slice(0,3)]);
     const o=$('opts');o.innerHTML='';
     [...set].sort(()=>Math.random()-.5).forEach(v=>{const b=document.createElement('button');b.className='btn';b.textContent=v;b.onclick=()=>this.choose(v,b);o.appendChild(b)});
     $('prog').textContent=`Soal ${this.round+1} dari ${this.need}`;
